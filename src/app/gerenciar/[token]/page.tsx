@@ -56,18 +56,19 @@ export default function GerenciarAnuncioPage(props: Props) {
   const loadData = async () => {
     setLoading(true);
     const res = await getListingByManageToken(token);
-    if (res.error) {
-      setErrorMsg(res.error);
+    if (res.error || !res.listing) {
+      setErrorMsg(res.error || 'Anúncio não encontrado.');
     } else {
-      setListing(res.listing);
+      const item = res.listing;
+      setListing(item);
       setEditForm({
-        title: res.listing.title || '',
-        categoryId: res.listing.category_id ? String(res.listing.category_id) : '',
-        price: res.listing.price ? String(res.listing.price) : '',
-        condition: res.listing.condition || 'USADO',
-        city: res.listing.city || '',
-        region: res.listing.region || '',
-        description: res.listing.description || '',
+        title: item.title || '',
+        categoryId: item.category_id ? String(item.category_id) : '',
+        price: item.price ? String(item.price) : '',
+        condition: item.condition || 'USADO',
+        city: item.city || '',
+        region: item.region || '',
+        description: item.description || '',
       });
     }
     setLoading(false);
@@ -209,7 +210,7 @@ export default function GerenciarAnuncioPage(props: Props) {
                     : 'bg-emerald-100 text-emerald-800'
                 }`}
               >
-                {listing.status}
+                {listing?.status}
               </span>
             </div>
 
@@ -227,7 +228,7 @@ export default function GerenciarAnuncioPage(props: Props) {
             {/* Resumo do artigo */}
             <div className="mt-5 flex gap-3.5 rounded-xl border border-zinc-100 bg-[#F8F7F4] p-3">
               <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-200">
-                {listing.listing_images?.[0]?.public_url ? (
+                {listing?.listing_images?.[0]?.public_url ? (
                   <Image
                     src={listing.listing_images[0].public_url}
                     alt={listing.title}
@@ -242,18 +243,18 @@ export default function GerenciarAnuncioPage(props: Props) {
               </div>
               <div className="flex flex-col justify-center overflow-hidden">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                  {listing.categories?.name}
+                  {listing?.categories?.name}
                 </span>
-                <h2 className="truncate text-sm font-bold text-[#1F2937]">{listing.title}</h2>
+                <h2 className="truncate text-sm font-bold text-[#1F2937]">{listing?.title}</h2>
                 <span className="text-xs font-bold text-[#556B2F]">
-                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(listing.price)}
+                  {listing?.price && new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(listing.price)}
                 </span>
               </div>
             </div>
 
             <div className="mt-3 text-right">
               <Link
-                href={`/anuncios/${listing.id}`}
+                href={`/anuncios/${listing?.id}`}
                 target="_blank"
                 className="inline-flex items-center gap-1 text-xs font-semibold text-[#556B2F] hover:underline"
               >
@@ -338,7 +339,7 @@ export default function GerenciarAnuncioPage(props: Props) {
               </div>
 
               {isEditing ? (
-                /* Formulário de Edição Aberto */
+                /* Formulário de Edição */
                 <form onSubmit={handleSaveFullEdit} className="space-y-3.5 rounded-xl border border-zinc-200 bg-[#F8F7F4] p-4">
                   <div>
                     <label className="block text-[11px] font-bold uppercase text-zinc-700 mb-1">
@@ -465,19 +466,19 @@ export default function GerenciarAnuncioPage(props: Props) {
                   </div>
                 </form>
               ) : (
-                /* Visualização atual quando não está em edição */
+                /* Visualização padrão */
                 <div className="rounded-xl border border-zinc-200 bg-[#F8F7F4] p-3.5 space-y-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-zinc-500">Condição:</span>
-                    <span className="font-bold text-zinc-900">{listing.condition}</span>
+                    <span className="font-bold text-zinc-900">{listing?.condition}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-zinc-500">Localização:</span>
-                    <span className="font-bold text-zinc-900">{listing.city} {listing.region ? `(${listing.region})` : ''}</span>
+                    <span className="font-bold text-zinc-900">{listing?.city} {listing?.region ? `(${listing.region})` : ''}</span>
                   </div>
                   <div className="pt-2 border-t border-zinc-200">
                     <span className="text-zinc-500 block mb-1">Descrição:</span>
-                    <p className="text-zinc-700 line-clamp-3 italic">"{listing.description}"</p>
+                    <p className="text-zinc-700 line-clamp-3 italic">"{listing?.description}"</p>
                   </div>
                 </div>
               )}
