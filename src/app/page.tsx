@@ -1,6 +1,5 @@
-'use client';
+export const dynamic = 'force-dynamic';
 
-import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -8,7 +7,13 @@ import { ListingCard } from '@/components/ListingCard';
 import { Search, Sparkles, Layers } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+
+interface SearchParamsProps {
+  searchParams?: Promise<{
+    busca?: string;
+    categoria?: string;
+  }>;
+}
 
 function normalizeSearchText(text: string): string {
   return text
@@ -18,7 +23,6 @@ function normalizeSearchText(text: string): string {
     .trim();
 }
 
-// Mapeamento dos ícones manuais da pasta public/icons/
 const CATEGORY_ICONS: Record<string, string> = {
   'rifles-aegs': '/icons/rifles.png',
   'pistolas': '/icons/pistolas.png',
@@ -28,79 +32,65 @@ const CATEGORY_ICONS: Record<string, string> = {
   'diversos': '/icons/diversos.png',
 };
 
-export default function HomePage() {
-  const searchParams = useSearchParams();
-  const buscaParam = searchParams.get('busca') || '';
-  const categoriaSlugParam = searchParams.get('categoria') || '';
+export default async function HomePage(props: SearchParamsProps) {
+  const searchParams = await props.searchParams;
+  const buscaParam = searchParams?.busca || '';
+  const categoriaSlugParam = searchParams?.categoria || '';
 
-  const [categories, setCategories] = useState<any[]>([]);
-  const [listings, setListings] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // 1. Obter Categorias
+  const { data: catData } = await supabase
+    .from('categories')
+    .select('id, name, slug')
+    .order('sort_order', { ascending: true });
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
+  const categories = catData || [];
 
-      // 1. Carregar Categorias
-      const { data: catData } = await supabase
-        .from('categories')
-        .select('id, name, slug')
-        .order('sort_order', { ascending: true });
+  // 2. Montar Consulta
+  let query = supabase
+    .from('listings')
+    .select(`
+      id,
+      title,
+      description,
+      price,
+      condition,
+      city,
+      region,
+      status,
+      categories ( name, slug ),
+      listing_images ( public_url, sort_order )
+    `)
+    .in('status', ['PUBLICADO', 'RESERVADO', 'VENDIDO'])
+    .order('published_at', { ascending: false });
 
-      if (catData) setCategories(catData);
-
-      // 2. Carregar Anúncios
-      let query = supabase
-        .from('listings')
-        .select(`
-          id,
-          title,
-          description,
-          price,
-          condition,
-          city,
-          region,
-          status,
-          categories ( name, slug ),
-          listing_images ( public_url, sort_order )
-        `)
-        .in('status', ['PUBLICADO', 'RESERVADO', 'VENDIDO'])
-        .order('published_at', { ascending: false });
-
-      if (categoriaSlugParam && catData) {
-        const found = catData.find((c) => c.slug === categoriaSlugParam);
-        if (found) {
-          query = query.eq('category_id', found.id);
-        }
-      }
-
-      const { data: items } = await query;
-
-      let filtered = items || [];
-      if (buscaParam) {
-        const termo = normalizeSearchText(buscaParam);
-        filtered = filtered.filter((item: any) => {
-          const t = normalizeSearchText(item.title || '');
-          const d = normalizeSearchText(item.description || '');
-          const c = normalizeSearchText(item.city || '');
-          const cat = normalizeSearchText(item.categories?.name || '');
-          return t.includes(termo) || d.includes(termo) || c.includes(termo) || cat.includes(termo);
-        });
-      }
-
-      setListings(filtered);
-      setLoading(false);
+  if (categoriaSlugParam && categories.length > 0) {
+    const found = categories.find((c) => c.slug === categoriaSlugParam);
+    if (found) {
+      query = query.eq('category_id', found.id);
     }
+  }
 
-    loadData();
-  }, [buscaParam, categoriaSlugParam]);
+  const { data: items } = await query;
+
+  // 3. Filtrar Busca
+  let filtered = items || [];
+  if (buscaParam) {
+    const termo = normalizeSearchText(buscaParam);
+    filtered = filtered.filter((item: any) => {
+      const t = normalizeSearchText(item.title || '');
+      const d = normalizeSearchText(item.description || '');
+      const c = normalizeSearchText(item.city || '');
+      const cat = normalizeSearchText(item.categories?.name || '');
+      return t.includes(termo) || d.includes(termo) || c.includes(termo) || cat.includes(termo);
+    });
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F7F4] text-[#1F2937] flex flex-col justify-between">
       <div>
         <Header />
 
-        {/* HERO BANNER - Puxa sua imagem de public/images/hero-bg.jpg */}
+        {/* HERO BANNER */}
         <div
           className="relative border-b border-zinc-900 bg-[#1F2937] py-16 px-4 text-white text-center sm:py-24 bg-cover bg-center overflow-hidden"
           style={{
@@ -115,7 +105,6 @@ export default function HomePage() {
               Compre, venda e conecte-se com outros jogadores.
             </p>
 
-            {/* Barra de Pesquisa */}
             <form
               method="GET"
               action="/#catalogo"
@@ -143,7 +132,7 @@ export default function HomePage() {
         </div>
 
         <main className="mx-auto max-w-6xl px-4 py-10" id="catalogo">
-          {/* CATEGORIAS LIMPAS E TRANSPARENTES (SEM RETÂNGULOS/BORDAS) */}
+          {/* CATEGORIAS */}
           <section className="mb-12" id="categorias">
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 sm:gap-4">
               {categories.map((cat) => {
@@ -156,7 +145,6 @@ export default function HomePage() {
                     href={`/?categoria=${cat.slug}${buscaParam ? `&busca=${buscaParam}` : ''}#catalogo`}
                     className="flex flex-col items-center justify-center p-2 text-center group transition cursor-pointer select-none"
                   >
-                    {/* Apenas o ícone livre e transparente */}
                     <div className="relative flex h-14 w-14 items-center justify-center transition-transform duration-200 group-hover:-translate-y-1">
                       {iconPath ? (
                         <Image
@@ -167,30 +155,25 @@ export default function HomePage() {
                           className={`object-contain transition-opacity duration-200 ${
                             isSelected ? 'opacity-100 scale-105' : 'opacity-85 group-hover:opacity-100'
                           }`}
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = 'none';
-                          }}
                         />
                       ) : (
-                        <Layers className={`h-8 w-8 transition-colors ${isSelected ? 'text-[#556B2F]' : 'text-zinc-600 group-hover:text-[#556B2F]'}`} />
+                        <Layers
+                          className={`h-8 w-8 transition-colors ${
+                            isSelected ? 'text-[#556B2F]' : 'text-zinc-600 group-hover:text-[#556B2F]'
+                          }`}
+                        />
                       )}
                     </div>
 
-                    {/* Nome da categoria abaixo do ícone */}
                     <span
                       className={`mt-2 text-xs font-bold leading-tight transition-colors ${
-                        isSelected
-                          ? 'text-[#556B2F]'
-                          : 'text-[#1F2937] group-hover:text-[#556B2F]'
+                        isSelected ? 'text-[#556B2F]' : 'text-[#1F2937] group-hover:text-[#556B2F]'
                       }`}
                     >
                       {cat.name}
                     </span>
 
-                    {/* Indicador sutil e limpo quando ativo */}
-                    {isSelected && (
-                      <span className="mt-1 h-1 w-6 rounded-full bg-[#556B2F]" />
-                    )}
+                    {isSelected && <span className="mt-1 h-1 w-6 rounded-full bg-[#556B2F]" />}
                   </Link>
                 );
               })}
@@ -224,13 +207,9 @@ export default function HomePage() {
           </div>
 
           {/* LISTA DE ANÚNCIOS */}
-          {loading ? (
-            <div className="py-16 text-center text-xs text-zinc-500">
-              Carregando classificados...
-            </div>
-          ) : listings.length > 0 ? (
+          {filtered.length > 0 ? (
             <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-4 md:gap-5">
-              {listings.map((item: any) => (
+              {filtered.map((item: any) => (
                 <ListingCard
                   key={item.id}
                   item={{
@@ -263,7 +242,7 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* BANNER COMUNITÁRIO - Puxa sua imagem de public/images/community-banner.jpg */}
+          {/* BANNER COMUNITÁRIO */}
           <section className="mt-16 overflow-hidden rounded-2xl border border-zinc-900 shadow-md">
             <div
               className="relative p-8 sm:p-12 text-white bg-cover bg-center flex flex-col justify-center min-h-[220px]"
