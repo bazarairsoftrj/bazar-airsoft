@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { ListingCard } from '@/components/ListingCard';
-import { Search, Sparkles, Layers } from 'lucide-react';
+import { Search, Sparkles, Layers, Shirt } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -29,6 +29,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   'equipamentos-protecao': '/icons/protecao.png',
   'acessorios': '/icons/acessorios.png',
   'municoes': '/icons/municoes.png',
+  'vestuario-calcado': '/icons/vestuario.png',
   'diversos': '/icons/diversos.png',
 };
 
@@ -37,10 +38,11 @@ export default async function HomePage(props: SearchParamsProps) {
   const buscaParam = searchParams?.busca || '';
   const categoriaSlugParam = searchParams?.categoria || '';
 
-  // 1. Obter Categorias
+  // 1. Obter Categorias ordenadas
   const { data: catData } = await supabase
     .from('categories')
     .select('id, name, slug')
+    .eq('active', true)
     .order('sort_order', { ascending: true });
 
   const categories = catData || [];
@@ -116,7 +118,7 @@ export default async function HomePage(props: SearchParamsProps) {
                   type="text"
                   name="busca"
                   defaultValue={buscaParam}
-                  placeholder="Buscar por produto, categoria ou palavra-chave..."
+                  placeholder="Buscar por réplica, farda, bota, colete..."
                   className="w-full bg-white py-3.5 pl-12 pr-4 text-sm text-[#1F2937] focus:outline-none"
                 />
               </div>
@@ -132,9 +134,9 @@ export default async function HomePage(props: SearchParamsProps) {
         </div>
 
         <main className="mx-auto max-w-6xl px-4 py-10" id="catalogo">
-          {/* CATEGORIAS */}
+          {/* CATEGORIAS LIMPAS E TRANSPARENTES */}
           <section className="mb-12" id="categorias">
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 sm:gap-4">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-3 sm:gap-4">
               {categories.map((cat) => {
                 const isSelected = categoriaSlugParam === cat.slug;
                 const iconPath = CATEGORY_ICONS[cat.slug];
@@ -154,6 +156,12 @@ export default async function HomePage(props: SearchParamsProps) {
                           height={44}
                           className={`object-contain transition-opacity duration-200 ${
                             isSelected ? 'opacity-100 scale-105' : 'opacity-85 group-hover:opacity-100'
+                          }`}
+                        />
+                      ) : cat.slug === 'vestuario-calcado' ? (
+                        <Shirt
+                          className={`h-8 w-8 transition-colors ${
+                            isSelected ? 'text-[#556B2F]' : 'text-zinc-600 group-hover:text-[#556B2F]'
                           }`}
                         />
                       ) : (
