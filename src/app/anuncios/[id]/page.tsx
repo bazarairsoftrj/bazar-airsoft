@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { createReportAction } from '@/app/actions/adminActions';
+import { getSellerWhatsAppLinkAction } from '@/app/actions/listingActions';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -29,12 +30,13 @@ export default function ListingDetailPage() {
 
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [openingWhatsApp, setOpeningWhatsApp] = useState(false);
 
-  // Estados da Galeria
+  // Galeria
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isZoomOpen, setIsZoomOpen] = useState(false);
 
-  // Modal de denúncia
+  // Denúncia
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState('GOLPE_SUSPEITA');
   const [reportDetails, setReportDetails] = useState('');
@@ -69,6 +71,18 @@ export default function ListingDetailPage() {
       });
   }, [id]);
 
+  const handleOpenWhatsApp = async () => {
+    setOpeningWhatsApp(true);
+    const res = await getSellerWhatsAppLinkAction(id);
+    setOpeningWhatsApp(false);
+
+    if (res.error) {
+      alert(res.error);
+    } else if (res.url) {
+      window.open(res.url, '_blank');
+    }
+  };
+
   const handleSendReport = async (e: React.FormEvent) => {
     e.preventDefault();
     setReporting(true);
@@ -89,7 +103,7 @@ export default function ListingDetailPage() {
         setReportDetails('');
       }, 2500);
     } else {
-      alert(res.error || 'Erro ao registar denúncia.');
+      alert(res.error || 'Erro ao registrar denúncia.');
     }
   };
 
@@ -98,7 +112,7 @@ export default function ListingDetailPage() {
       <div className="min-h-screen bg-[#F8F7F4] text-[#1F2937]">
         <Header />
         <main className="mx-auto max-w-3xl px-4 py-20 text-center text-sm text-zinc-500">
-          A carregar informações do artigo...
+          Carregando informações do item...
         </main>
       </div>
     );
@@ -132,7 +146,7 @@ export default function ListingDetailPage() {
                 Anúncio Pausado
               </h1>
               <p className="mt-2 text-xs text-zinc-600 leading-relaxed">
-                Este anúncio foi temporariamente pausado pelo anunciante e não se encontra disponível para negociação neste momento.
+                Este anúncio foi temporariamente pausado pelo anunciante e não se encontra disponível para negociação no momento.
               </p>
               <div className="mt-6">
                 <Link
@@ -140,7 +154,7 @@ export default function ListingDetailPage() {
                   className="inline-flex items-center gap-1.5 rounded-xl bg-[#556B2F] px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#445625]"
                   style={{ backgroundColor: '#556B2F', color: '#FFFFFF' }}
                 >
-                  <ArrowLeft className="h-4 w-4" /> Ver Outros Artigos
+                  <ArrowLeft className="h-4 w-4" /> Ver Outros Itens
                 </Link>
               </div>
             </div>
@@ -168,10 +182,6 @@ export default function ListingDetailPage() {
     currency: 'BRL',
   }).format(Number(item.price));
 
-  const whatsappMessage = encodeURIComponent(
-    `Olá, vi o seu anúncio de "${item.title}" no Bazar Airsoft e gostaria de saber mais informações.`
-  );
-
   return (
     <div className="min-h-screen bg-[#F8F7F4] text-[#1F2937] flex flex-col justify-between">
       <div>
@@ -190,7 +200,7 @@ export default function ListingDetailPage() {
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-emerald-400" />
                 <span className="text-xs font-bold uppercase tracking-wider">
-                  Artigo Já Vendido
+                  Item Já Vendido
                 </span>
               </div>
               <span className="text-[11px] text-zinc-300">
@@ -199,9 +209,8 @@ export default function ListingDetailPage() {
             </div>
           )}
 
-          {/* GALERIA DE FOTOS INTERATIVA COM NAVEGAÇÃO E ZOOM */}
+          {/* Galeria de Fotos */}
           <div className="overflow-hidden rounded-2xl border border-zinc-200/90 bg-white shadow-sm p-3">
-            {/* Foto Ativa */}
             <div className="relative aspect-video w-full rounded-xl bg-zinc-100 overflow-hidden sm:aspect-[16/10] flex items-center justify-center">
               {currentImageUrl ? (
                 <>
@@ -213,24 +222,21 @@ export default function ListingDetailPage() {
                     className={`object-contain p-2 ${isSold ? 'grayscale' : ''}`}
                   />
 
-                  {/* Botão de Zoom em Ecrã Inteiro */}
                   <button
                     type="button"
                     onClick={() => setIsZoomOpen(true)}
                     className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition shadow-md cursor-pointer"
-                    title="Ampliar fotografia"
+                    title="Ampliar foto"
                   >
                     <Maximize2 className="h-4 w-4" />
                   </button>
 
-                  {/* Setas de Navegação (se houver mais de 1 foto) */}
                   {images.length > 1 && (
                     <>
                       <button
                         type="button"
                         onClick={prevImage}
                         className="absolute left-2.5 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/80 transition cursor-pointer"
-                        title="Foto anterior"
                       >
                         <ChevronLeft className="h-5 w-5" />
                       </button>
@@ -238,7 +244,6 @@ export default function ListingDetailPage() {
                         type="button"
                         onClick={nextImage}
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/80 transition cursor-pointer"
-                        title="Próxima foto"
                       >
                         <ChevronRight className="h-5 w-5" />
                       </button>
@@ -246,11 +251,10 @@ export default function ListingDetailPage() {
                   )}
                 </>
               ) : (
-                <div className="text-zinc-400 text-xs">Sem fotografias disponíveis</div>
+                <div className="text-zinc-400 text-xs">Sem fotos disponíveis</div>
               )}
             </div>
 
-            {/* Miniaturas Inferiores Clicáveis */}
             {images.length > 1 && (
               <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                 {images.map((img: any, idx: number) => (
@@ -276,7 +280,7 @@ export default function ListingDetailPage() {
             )}
           </div>
 
-          {/* DADOS PRINCIPAIS */}
+          {/* Dados Principais */}
           <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-[#556B2F]">
@@ -299,23 +303,23 @@ export default function ListingDetailPage() {
               Anunciante: <strong>{item.seller_contacts?.display_name || 'Vendedor da Comunidade'}</strong>
             </div>
 
-            {/* Ação WhatsApp */}
+            {/* Ação Direta para o WhatsApp do Vendedor */}
             <div className="mt-6">
               {isSold ? (
                 <div className="w-full rounded-xl bg-zinc-200 py-3.5 text-center text-xs font-bold uppercase text-zinc-500 cursor-not-allowed">
-                  Artigo Vendido • Contacto Desativado
+                  Item Vendido • Contato Desativado
                 </div>
               ) : (
-                <a
-                  href={`https://wa.me/?text=${whatsappMessage}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#556B2F] py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#445625] cursor-pointer"
+                <button
+                  type="button"
+                  disabled={openingWhatsApp}
+                  onClick={handleOpenWhatsApp}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#556B2F] py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#445625] cursor-pointer disabled:opacity-50"
                   style={{ backgroundColor: '#556B2F', color: '#FFFFFF' }}
                 >
                   <MessageCircle className="h-5 w-5" />
-                  Falar pelo WhatsApp
-                </a>
+                  {openingWhatsApp ? 'Abrindo conversa...' : 'Falar pelo WhatsApp'}
+                </button>
               )}
             </div>
 
@@ -334,7 +338,7 @@ export default function ListingDetailPage() {
 
           {/* Descrição */}
           <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <h2 className="font-bebas text-xl tracking-wide text-zinc-900 mb-2">Descrição do Artigo</h2>
+            <h2 className="font-bebas text-xl tracking-wide text-zinc-900 mb-2">Descrição do Item</h2>
             <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-700">
               {item.description}
             </p>
@@ -355,7 +359,7 @@ export default function ListingDetailPage() {
 
       <Footer />
 
-      {/* MODAL DE ZOOM EM ECRÃ INTEIRO */}
+      {/* Modal de Zoom */}
       {isZoomOpen && currentImageUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4 backdrop-blur-md">
           <button
