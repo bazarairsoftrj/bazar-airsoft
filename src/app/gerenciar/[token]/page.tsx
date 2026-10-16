@@ -64,7 +64,7 @@ export default function GerenciarAnuncioPage(props: Props) {
       setEditForm({
         title: item.title || '',
         categoryId: item.category_id ? String(item.category_id) : '',
-        price: item.price ? String(item.price) : '',
+        price: item.price !== undefined && item.price !== null ? String(item.price) : '',
         condition: item.condition || 'USADO',
         city: item.city || '',
         region: item.region || '',
@@ -77,7 +77,6 @@ export default function GerenciarAnuncioPage(props: Props) {
   useEffect(() => {
     loadData();
 
-    // Carregar categorias ativas
     supabase
       .from('categories')
       .select('id, name')
@@ -231,7 +230,7 @@ export default function GerenciarAnuncioPage(props: Props) {
                 {listing?.listing_images?.[0]?.public_url ? (
                   <Image
                     src={listing.listing_images[0].public_url}
-                    alt={listing.title}
+                    alt={listing?.title || 'Foto do produto'}
                     fill
                     className="object-cover"
                   />
@@ -247,7 +246,7 @@ export default function GerenciarAnuncioPage(props: Props) {
                 </span>
                 <h2 className="truncate text-sm font-bold text-[#1F2937]">{listing?.title}</h2>
                 <span className="text-xs font-bold text-[#556B2F]">
-                  {listing?.price && new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(listing.price)}
+                  {listing?.price !== undefined && listing?.price !== null && new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(listing.price))}
                 </span>
               </div>
             </div>
@@ -339,7 +338,6 @@ export default function GerenciarAnuncioPage(props: Props) {
               </div>
 
               {isEditing ? (
-                /* Formulário de Edição */
                 <form onSubmit={handleSaveFullEdit} className="space-y-3.5 rounded-xl border border-zinc-200 bg-[#F8F7F4] p-4">
                   <div>
                     <label className="block text-[11px] font-bold uppercase text-zinc-700 mb-1">
@@ -466,7 +464,6 @@ export default function GerenciarAnuncioPage(props: Props) {
                   </div>
                 </form>
               ) : (
-                /* Visualização padrão */
                 <div className="rounded-xl border border-zinc-200 bg-[#F8F7F4] p-3.5 space-y-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-zinc-500">Condição:</span>
