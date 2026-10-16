@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Header } from '@/components/Header';
 import { createListingAction } from '@/app/actions/listingActions';
-import { Camera, X, CheckCircle, Copy, MessageCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Camera, X, CheckCircle, Copy, MessageCircle, AlertCircle, ArrowLeft, Star } from 'lucide-react';
 import Link from 'next/link';
 
 export default function NovoAnuncioPage() {
@@ -15,8 +15,6 @@ export default function NovoAnuncioPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [createdData, setCreatedData] = useState<{ listingId: string; manageToken: string } | null>(null);
   const [copied, setCopied] = useState(false);
-  
-  // Estado para a máscara do telemóvel
   const [phone, setPhone] = useState('');
 
   useEffect(() => {
@@ -29,7 +27,6 @@ export default function NovoAnuncioPage() {
       });
   }, []);
 
-  // Máscara automática: (XX) 9XXXX-XXXX
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, '');
     if (value.length > 11) value = value.slice(0, 11);
@@ -63,6 +60,15 @@ export default function NovoAnuncioPage() {
     setPreviews(newImages.map((f) => URL.createObjectURL(f)));
   };
 
+  // Define a foto selecionada como a primeira (Capa Principal)
+  const setAsCover = (index: number) => {
+    if (index === 0) return;
+    const selectedFile = images[index];
+    const newImages = [selectedFile, ...images.filter((_, i) => i !== index)];
+    setImages(newImages);
+    setPreviews(newImages.map((f) => URL.createObjectURL(f)));
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMsg('');
@@ -78,11 +84,11 @@ export default function NovoAnuncioPage() {
         return;
       }
 
-      // 1. Upload das fotografias para o Supabase Storage
+      // Upload das fotografias mantendo a ordem (a primeira é a capa)
       const uploadedUrls: string[] = [];
       for (let i = 0; i < images.length; i++) {
         const file = images[i];
-        const ext = file.name.split('.').pop();
+        const ext = file.name.split('.').pop() || 'jpg';
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
 
         const { data: uploadData, error: uploadError } = await supabase.storage
@@ -102,7 +108,6 @@ export default function NovoAnuncioPage() {
 
       formData.set('imageUrls', JSON.stringify(uploadedUrls));
 
-      // 2. Chamar a Server Action
       const res = await createListingAction(formData);
       if (res.error) {
         setErrorMsg(res.error);
@@ -164,13 +169,21 @@ export default function NovoAnuncioPage() {
             </div>
 
             <div className="mt-6 flex flex-col gap-2">
+              <Link
+                href={`/gerenciar/${createdData.manageToken}`}
+                className="flex items-center justify-center gap-2 rounded-xl bg-[#556B2F] py-3 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#445625]"
+                style={{ backgroundColor: '#556B2F', color: '#FFFFFF' }}
+              >
+                Aceder Agora ao Painel de Edição do Anúncio
+              </Link>
+
               <a
                 href={`https://wa.me/?text=${encodeURIComponent(`Link de gestão do meu anúncio no Bazar Airsoft: ${manageUrl}`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 rounded-xl bg-[#556B2F] py-3 text-xs font-bold text-white hover:bg-[#445625]"
+                className="flex items-center justify-center gap-2 rounded-xl border border-emerald-600 bg-emerald-50 py-2.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100"
               >
-                <MessageCircle className="h-4 w-4" />
+                <MessageCircle className="h-4 w-4 text-emerald-600" />
                 Guardar link no meu WhatsApp
               </a>
 
@@ -178,7 +191,7 @@ export default function NovoAnuncioPage() {
                 href={`/anuncios/${createdData.listingId}`}
                 className="rounded-xl border border-zinc-300 bg-white py-2.5 text-xs font-bold text-zinc-800 hover:bg-zinc-50"
               >
-                Ver o anúncio publicado
+                Ver o anúncio publicado na montra
               </Link>
             </div>
           </div>
@@ -204,7 +217,7 @@ export default function NovoAnuncioPage() {
             Publicar Novo Anúncio
           </h1>
           <p className="text-xs text-zinc-500 mb-6">
-            Preencha os dados do seu equipamento. A publicação é imediata e gratuita.
+            Preencha os dados do seu equipamento. A primeira foto será a capa principal.
           </p>
 
           {errorMsg && (
@@ -215,28 +228,58 @@ export default function NovoAnuncioPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Fotos */}
+            {/* Secção de Fotografias com Seleção de Capa */}
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-[#1F2937] mb-1">
-                Fotografias do Produto (1 a 4 fotos) *
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#1F2937]">
+                  Fotografias do Artigo (1 a 4 fotos) *
+                </label>
+                <span className="text-[10px] text-zinc-400">Clique na estrela para definir a capa</span>
+              </div>
+
               <div className="grid grid-cols-4 gap-2 mt-2">
                 {previews.map((src, i) => (
-                  <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-zinc-200">
+                  <div
+                    key={i}
+                    className={`relative aspect-square rounded-xl overflow-hidden border-2 transition ${
+                      i === 0 ? 'border-[#556B2F] ring-2 ring-[#556B2F]/30' : 'border-zinc-200'
+                    }`}
+                  >
                     <img src={src} alt="Pré-visualização" className="h-full w-full object-cover" />
+
+                    {/* Badge ou Botão de Capa Principal */}
+                    {i === 0 ? (
+                      <span className="absolute left-1 bottom-1 rounded bg-[#556B2F] px-1.5 py-0.5 text-[9px] font-black uppercase text-white shadow-xs">
+                        Capa
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setAsCover(i)}
+                        className="absolute left-1 bottom-1 flex items-center gap-0.5 rounded bg-black/60 px-1 py-0.5 text-[9px] font-bold text-white hover:bg-[#556B2F] transition"
+                        title="Definir como foto principal"
+                      >
+                        <Star className="h-2.5 w-2.5 text-[#D7C9A8]" />
+                        <span>Capa</span>
+                      </button>
+                    )}
+
+                    {/* Botão Remover */}
                     <button
                       type="button"
                       onClick={() => removeImage(i)}
-                      className="absolute right-1 top-1 rounded-full bg-zinc-900/80 p-1 text-white hover:bg-red-600"
+                      className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white hover:bg-red-600 transition"
+                      title="Remover foto"
                     >
                       <X className="h-3 w-3" />
                     </button>
                   </div>
                 ))}
+
                 {previews.length < 4 && (
-                  <label className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 bg-zinc-50 hover:bg-zinc-100 transition">
+                  <label className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 bg-zinc-50 hover:bg-zinc-100 transition">
                     <Camera className="h-5 w-5 text-zinc-400" />
-                    <span className="mt-1 text-[10px] font-medium text-zinc-500">Adicionar</span>
+                    <span className="mt-1 text-[10px] font-bold text-zinc-500">Adicionar</span>
                     <input
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
@@ -352,7 +395,7 @@ export default function NovoAnuncioPage() {
                 name="description"
                 rows={4}
                 required
-                placeholder="Descreva o estado, tempo de uso, acessórios incluídos e detalhes..."
+                placeholder="Descreva o estado, tempo de uso, upgrades, itens inclusos e detalhes do equipamento..."
                 className="w-full rounded-xl border border-zinc-200 px-3.5 py-2 text-sm text-[#1F2937] focus:outline-none focus:ring-1 focus:ring-[#556B2F]"
               />
             </div>
@@ -394,7 +437,6 @@ export default function NovoAnuncioPage() {
               </div>
             </div>
 
-            {/* Termos de responsabilidade */}
             <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-3 text-[11px] text-zinc-600">
               <label className="flex items-start gap-2 cursor-pointer">
                 <input type="checkbox" required className="mt-0.5 rounded text-[#556B2F]" />

@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { createReportAction } from '@/app/actions/adminActions';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import {
   ArrowLeft,
   MapPin,
@@ -17,18 +18,21 @@ import {
   Check,
   PauseCircle,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
 } from 'lucide-react';
 
-interface Props {
-  params: Promise<{ id: string }>;
-}
-
-export default function ListingDetailPage(props: Props) {
-  const resolvedParams = use(props.params);
-  const id = resolvedParams.id;
+export default function ListingDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
 
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Estados da Galeria
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
 
   // Modal de denúncia
   const [showReportModal, setShowReportModal] = useState(false);
@@ -38,6 +42,7 @@ export default function ListingDetailPage(props: Props) {
   const [reporting, setReporting] = useState(false);
 
   useEffect(() => {
+    if (!id) return;
     supabase
       .from('listings')
       .select(`
@@ -54,7 +59,7 @@ export default function ListingDetailPage(props: Props) {
         published_at,
         categories ( name ),
         seller_contacts ( display_name ),
-        listing_images ( public_url )
+        listing_images ( public_url, sort_order )
       `)
       .eq('id', id)
       .single()
@@ -113,7 +118,6 @@ export default function ListingDetailPage(props: Props) {
     );
   }
 
-  // 1. BLOQUEIO SE ESTIVER PAUSADO
   if (item.status === 'PAUSADO') {
     return (
       <div className="min-h-screen bg-[#F8F7F4] text-[#1F2937] flex flex-col justify-between">
@@ -148,6 +152,16 @@ export default function ListingDetailPage(props: Props) {
   }
 
   const isSold = item.status === 'VENDIDO';
+  const images = item.listing_images || [];
+  const currentImageUrl = images[activeImageIndex]?.public_url;
+
+  const nextImage = () => {
+    setActiveImageIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = () => {
+    setActiveImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
 
   const formattedPrice = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -171,7 +185,6 @@ export default function ListingDetailPage(props: Props) {
             <ArrowLeft className="h-4 w-4" /> Voltar ao catálogo
           </Link>
 
-          {/* Banner de Artigo Vendido */}
           {isSold && (
             <div className="mb-4 rounded-xl border border-zinc-300 bg-zinc-900 p-3.5 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -186,26 +199,84 @@ export default function ListingDetailPage(props: Props) {
             </div>
           )}
 
-          {/* Galeria de Fotos com fundo contrastante para fotos brancas */}
-          <div className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-zinc-100 shadow-xs">
-            <div className="relative aspect-video w-full p-4 sm:aspect-[16/10] flex items-center justify-center">
-              {item.listing_images?.[0]?.public_url ? (
-                <Image
-                  src={item.listing_images[0].public_url}
-                  alt={item.title}
-                  fill
-                  priority
-                  className={`object-contain p-2 ${isSold ? 'grayscale' : ''}`}
-                />
+          {/* GALERIA DE FOTOS INTERATIVA COM NAVEGAÇÃO E ZOOM */}
+          <div className="overflow-hidden rounded-2xl border border-zinc-200/90 bg-white shadow-sm p-3">
+            {/* Foto Ativa */}
+            <div className="relative aspect-video w-full rounded-xl bg-zinc-100 overflow-hidden sm:aspect-[16/10] flex items-center justify-center">
+              {currentImageUrl ? (
+                <>
+                  <Image
+                    src={currentImageUrl}
+                    alt={item.title}
+                    fill
+                    priority
+                    className={`object-contain p-2 ${isSold ? 'grayscale' : ''}`}
+                  />
+
+                  {/* Botão de Zoom em Ecrã Inteiro */}
+                  <button
+                    type="button"
+                    onClick={() => setIsZoomOpen(true)}
+                    className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition shadow-md cursor-pointer"
+                    title="Ampliar fotografia"
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                  </button>
+
+                  {/* Setas de Navegação (se houver mais de 1 foto) */}
+                  {images.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={prevImage}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/80 transition cursor-pointer"
+                        title="Foto anterior"
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={nextImage}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/80 transition cursor-pointer"
+                        title="Próxima foto"
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </button>
+                    </>
+                  )}
+                </>
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-zinc-400 text-xs">
-                  Sem fotografias disponíveis
-                </div>
+                <div className="text-zinc-400 text-xs">Sem fotografias disponíveis</div>
               )}
             </div>
+
+            {/* Miniaturas Inferiores Clicáveis */}
+            {images.length > 1 && (
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                {images.map((img: any, idx: number) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveImageIndex(idx)}
+                    className={`relative h-16 w-16 shrink-0 rounded-lg overflow-hidden border-2 transition ${
+                      activeImageIndex === idx
+                        ? 'border-[#556B2F] ring-2 ring-[#556B2F]/30 scale-102'
+                        : 'border-zinc-200 opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <Image
+                      src={img.public_url}
+                      alt={`Miniatura ${idx + 1}`}
+                      fill
+                      className="object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Informações Principais */}
+          {/* DADOS PRINCIPAIS */}
           <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-[#556B2F]">
@@ -228,7 +299,7 @@ export default function ListingDetailPage(props: Props) {
               Anunciante: <strong>{item.seller_contacts?.display_name || 'Vendedor da Comunidade'}</strong>
             </div>
 
-            {/* Ação WhatsApp ou Bloqueio de Vendido */}
+            {/* Ação WhatsApp */}
             <div className="mt-6">
               {isSold ? (
                 <div className="w-full rounded-xl bg-zinc-200 py-3.5 text-center text-xs font-bold uppercase text-zinc-500 cursor-not-allowed">
@@ -283,6 +354,47 @@ export default function ListingDetailPage(props: Props) {
       </div>
 
       <Footer />
+
+      {/* MODAL DE ZOOM EM ECRÃ INTEIRO */}
+      {isZoomOpen && currentImageUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4 backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => setIsZoomOpen(false)}
+            className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/40 transition cursor-pointer"
+          >
+            <X className="h-6 w-6" />
+          </button>
+
+          <div className="relative h-full w-full max-w-4xl max-h-[85vh] flex items-center justify-center">
+            <Image
+              src={currentImageUrl}
+              alt={item.title}
+              fill
+              className="object-contain"
+            />
+          </div>
+
+          {images.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={prevImage}
+                className="absolute left-4 top-1/2 -translate-y-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/40 transition cursor-pointer"
+              >
+                <ChevronLeft className="h-8 w-8" />
+              </button>
+              <button
+                type="button"
+                onClick={nextImage}
+                className="absolute right-4 top-1/2 -translate-y-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/40 transition cursor-pointer"
+              >
+                <ChevronRight className="h-8 w-8" />
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Modal de Denúncia */}
       {showReportModal && (
